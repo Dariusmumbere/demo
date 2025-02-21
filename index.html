@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 text-black">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 text-white p-6">
+            <h2 class="text-xl font-semibold mb-4">Dashboard</h2>
+            <nav>
+                <ul>
+                    <li><a href="#" onclick="showOverview()" class="block py-2 px-4 rounded hover:bg-gray-700">Overview</a></li>
+                    <ul id="productList">
+                        <!-- Product items dynamically added here -->
+                    </ul>
+                </ul>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="flex-1 p-6">
+            <header class="flex justify-between items-center mb-6">
+                <h1 id="pageTitle" class="text-2xl font-bold">Overview</h1>
+            </header>
+            
+            <div id="overviewPage">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-lg font-semibold">Welcome to the Business Dashboard</h3>
+                    <p class="text-gray-600">Select a product from the sidebar to view its details.</p>
+                </div>
+                <div class="mt-6">
+                    <canvas id="salesPieChart" class="bg-white p-6 rounded-lg shadow-md"></canvas>
+                </div>
+            </div>
+            
+            <div id="productDetails" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold">Total Sales</h3>
+                        <p id="productSales" class="text-2xl font-bold">UGX 0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold">Total Profit</h3>
+                        <p id="productProfit" class="text-2xl font-bold">UGX 0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold">Daily Sales</h3>
+                        <ul id="dailySales" class="text-lg"></ul>
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <input id="saleAmount" type="number" placeholder="Enter sale amount" class="border px-4 py-2 rounded">
+                    <button onclick="addSale()" class="bg-blue-500 text-white px-4 py-2 rounded">Add Sale</button>
+                </div>
+                
+                <div class="mt-6">
+                    <canvas id="dailySalesLineChart" class="bg-white p-6 rounded-lg shadow-md"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let selectedProduct = null;
+        const products = [
+            { name: "Smartphone", sales: 0, profit: 0, dailySales: [] },
+            { name: "Laptop", sales: 0, profit: 0, dailySales: [] },
+            { name: "Tablet", sales: 0, profit: 0, dailySales: [] },
+            { name: "Smartwatch", sales: 0, profit: 0, dailySales: [] },
+            { name: "Headphones", sales: 0, profit: 0, dailySales: [] },
+            { name: "Gaming Console", sales: 0, profit: 0, dailySales: [] },
+            { name: "Camera", sales: 0, profit: 0, dailySales: [] },
+            { name: "Monitor", sales: 0, profit: 0, dailySales: [] },
+            { name: "Keyboard", sales: 0, profit: 0, dailySales: [] },
+            { name: "Mouse", sales: 0, profit: 0, dailySales: [] }
+        ];
+
+        let salesPieChart, dailySalesLineChart;
+
+        function renderProducts() {
+            const productList = document.getElementById("productList");
+            productList.innerHTML = "";
+            products.forEach((product, index) => {
+                let li = document.createElement("li");
+                li.innerHTML = `<a href="#" onclick="selectProduct(${index})" class="block py-2 px-4 rounded hover:bg-gray-700">${product.name}</a>`;
+                productList.appendChild(li);
+            });
+        }
+
+        function showOverview() {
+            document.getElementById("pageTitle").innerText = "Overview";
+            document.getElementById("overviewPage").classList.remove("hidden");
+            document.getElementById("productDetails").classList.add("hidden");
+            updateSalesPieChart();
+        }
+
+        function selectProduct(index) {
+            selectedProduct = products[index];
+            document.getElementById("pageTitle").innerText = selectedProduct.name;
+            document.getElementById("overviewPage").classList.add("hidden");
+            document.getElementById("productDetails").classList.remove("hidden");
+            document.getElementById("productSales").innerText = `UGX ${selectedProduct.sales.toLocaleString()}`;
+            document.getElementById("productProfit").innerText = `UGX ${selectedProduct.profit.toLocaleString()}`;
+            renderDailySales();
+            updateDailySalesLineChart();
+        }
+
+        function addSale() {
+            if (!selectedProduct) return;
+            const saleAmount = parseFloat(document.getElementById("saleAmount").value);
+            if (isNaN(saleAmount) || saleAmount <= 0) return;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const profit = saleAmount * 0.2; 
+            
+            selectedProduct.sales += saleAmount;
+            selectedProduct.profit += profit;
+            
+            let existingDay = selectedProduct.dailySales.find(sale => sale.date === today);
+            if (existingDay) {
+                existingDay.amount += saleAmount;
+            } else {
+                selectedProduct.dailySales.push({ date: today, amount: saleAmount });
+            }
+
+            document.getElementById("productSales").innerText = `UGX ${selectedProduct.sales.toLocaleString()}`;
+            document.getElementById("productProfit").innerText = `UGX ${selectedProduct.profit.toLocaleString()}`;
+            renderDailySales();
+            updateDailySalesLineChart();
+            updateSalesPieChart();
+        }
+
+        function renderDailySales() {
+            const dailySalesList = document.getElementById("dailySales");
+            dailySalesList.innerHTML = "";
+            selectedProduct.dailySales.forEach(sale => {
+                let li = document.createElement("li");
+                li.innerText = `${sale.date}: UGX ${sale.amount.toLocaleString()}`;
+                dailySalesList.appendChild(li);
+            });
+        }
+
+        function updateSalesPieChart() {
+            const ctx = document.getElementById('salesPieChart').getContext('2d');
+            const labels = products.map(product => product.name);
+            const data = products.map(product => product.sales);
+
+            if (salesPieChart) {
+                salesPieChart.destroy();
+            }
+
+            salesPieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Sales',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)',
+                            'rgba(153, 102, 255, 0.2)',
+                            'rgba(255, 159, 64, 0.2)',
+                            'rgba(199, 199, 199, 0.2)',
+                            'rgba(83, 102, 255, 0.2)',
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)',
+                            'rgba(83, 102, 255, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Sales Distribution by Product'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDailySalesLineChart() {
+            const ctx = document.getElementById('dailySalesLineChart').getContext('2d');
+            const labels = selectedProduct.dailySales.map(sale => sale.date);
+            const data = selectedProduct.dailySales.map(sale => sale.amount);
+
+            if (dailySalesLineChart) {
+                dailySalesLineChart.destroy();
+            }
+
+            dailySalesLineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Daily Sales',
+                        data: data,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Daily Sales Trend'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            renderProducts();
+            updateSalesPieChart();
+        });
+    </script>
+</body>
+</html>
